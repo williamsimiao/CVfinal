@@ -26,48 +26,12 @@ String window_name = "Capture - Face detection";
 Point daEsquerda;
 Point daDireita;
 int colsNumber = 5;
-float colWidth;
+int colWidth;
 std::vector<coluna> colunaVect;
-
-
-Point pontoMedio( Point esquerdo, Point direito) {
-  int x = (esquerdo.x + direito.x)/2;
-  int y = (esquerdo.y + direito.y)/2;
-  Point meio(x, y);
-  return meio;
-}
 
 Point calculaCentro(Rect oneFace) {
   Point center( oneFace.x + oneFace.width/2, oneFace.y + oneFace.height/2 );
   return center;
-}
-
-void escolhePontosExtremos(std::vector<Rect> faces) {
-  int maior;
-  int menor;
-  if(faces.size() != 0) {
-    maior = faces[0].x + faces[0].width/2;
-    menor = faces[0].x + faces[0].width/2;
-
-    int maiorInd = 0;
-    int menorInd = 0;
-    for(int i = 0; i < faces.size(); i++) {
-      Point center = calculaCentro(faces[i]);
-      if(center.x < menor) {
-        menor = center.x;
-        menorInd = i;
-      }
-      if(center.x > maior) {
-        maior = center.x;
-        maiorInd = i;
-      }
-    }
-
-    if(faces.size() != 0) {
-      daEsquerda = calculaCentro(faces[menorInd]);
-      daDireita = calculaCentro(faces[maiorInd]);
-    }
-  }
 }
 
 void calculaRetangulosDispoiniveisEDesenha(Mat frame) {
@@ -85,28 +49,27 @@ void calculaRetangulosDispoiniveisEDesenha(Mat frame) {
       }
       emSequencia = true;
       nConsecutivas++;
+      if(nConsecutivas > nConsecutivasFinal) {
+        nConsecutivasFinal = nConsecutivas;
+        indiceDaprimeiraFinal = indiceDaprimeira;
+      }
     }
     else{
       emSequencia = false;
       nConsecutivas = 0;
     }
-    if(nConsecutivas > nConsecutivasFinal) {
-      nConsecutivasFinal = nConsecutivas;
-      indiceDaprimeiraFinal = indiceDaprimeira;
-    }
   }
 
   //Agora vamos desenhar um retangulo da extremidade esquerda da primeira
   //coluna ate a extremidade direita da ultima
-  printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
-  printf("ponto um: x=%d , y=%d\n",colunaVect[indiceDaprimeiraFinal].centroX, 0);
-  printf("ponto dois: x=%d , y=%d\n",colunaVect[nConsecutivasFinal-1].centroX, frame.cols );
-  rectangle(frame, Point(colunaVect[indiceDaprimeiraFinal].centroX, 0),
-            Point(colunaVect[nConsecutivasFinal-1].centroX, frame.cols),
+  // printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
+  // printf("ponto um: x=%d , y=%d\n",colunaVect[indiceDaprimeiraFinal].centroX, 0);
+  // printf("ponto dois: x=%d , y=%d\n",colunaVect[nConsecutivasFinal-1].centroX, frame.cols );
+  rectangle(frame, Point(colunaVect[indiceDaprimeiraFinal].centroX - colWidth/2, 0),
+            Point(colunaVect[nConsecutivasFinal-1].centroX + colWidth/2, frame.cols - 10),
             Scalar( 0, 0, 255 ),
-            1,
+            3,
             0);
-
 }
 
 void inicializaColunas(Mat frame) {
@@ -130,57 +93,14 @@ bool isFaceInsideColuna(coluna myColuna, Rect face) {
   return false;
 }
 
-
-/** @function main */
-int main( int argc, const char** argv )
-{
-    // CommandLineParser parser(argc, argv,
-    //     "{help h||}"
-    //     "{face_cascade|../../data/haarcascades/haarcascade_frontalface_alt.xml|}"
-    //     "{eyes_cascade|../../data/haarcascades/haarcascade_eye_tree_eyeglasses.xml|}");
-    //
-    // cout << "\nThis program demonstrates using the cv::CascadeClassifier class to detect objects (Face + eyes) in a video stream.\n"
-    //         "You can use Haar or LBP features.\n\n";
-    // parser.printMessage();
-    //
-    // face_cascade_name = parser.get<string>("face_cascade");
-    // eyes_cascade_name = parser.get<string>("eyes_cascade");
-    face_cascade_name = "face_cascade.xml";
-    eyes_cascade_name = "eyes_cascade.xml";
-    VideoCapture capture;
-    Mat frame;
-
-    //-- 1. Load the cascades
-    if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading face cascade\n"); return -1; };
-    if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading eyes cascade\n"); return -1; };
-
-    //-- 2. Read the video stream
-    // capture.open( 0 );
-    capture = VideoCapture("people_walking.mp4");
-
-    if ( ! capture.isOpened() ) { printf("--(!)Error opening video capture\n"); return -1; }
-
-    inicializaColunas(frame);
-    // auto primeiro = high_resolution_clock::now();
-    int count;
-    while ( capture.read(frame) )
-    {
-        if( frame.empty() )
-        {
-            printf(" --(!) No captured frame -- Break!");
-            break;
-        }
-
-        //-- 3. Apply the classifier to the frame
-        detectAndDisplay( frame );
-        calculaRetangulosDispoiniveisEDesenha(frame);
-        imshow( window_name, frame );
-        count++;
-
-        char c = (char)waitKey(10);
-        if( c == 27 ) { break; } // escape
-    }
-    return 0;
+void desenhaColunas(Mat frame) {
+  for(int i = 0; i < colsNumber; i++) {
+    rectangle(frame, Point(colWidth*i, 0),
+              Point(colWidth*(i+1), frame.cols -10),
+              Scalar( 255, 0, 0 ),
+              3,
+              0);
+  }
 }
 
 /** @function detectAndDisplay */
@@ -194,16 +114,6 @@ void detectAndDisplay( Mat frame )
 
     //-- Detect faces
     face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(30, 30) );
-
-    // //by:Will
-    // printf("faces.size(): %lu\n", faces.size());
-    // escolhePontosExtremos(faces);
-    // printf("doido\n" );
-    // Point pMedio = pontoMedio(daEsquerda, daDireita);
-    // printf("x: %d , y: %d\n", pMedio.x, pMedio.y);
-    // int radius = 40;
-    // circle( frame, pMedio, radius, Scalar( 255, 0, 0 ), 4, 8, 0 );
-
 
     for ( size_t i = 0; i < faces.size(); i++ )
     {
@@ -230,5 +140,46 @@ void detectAndDisplay( Mat frame )
         //     circle( frame, eye_center, radius, Scalar( 255, 0, 0 ), 4, 8, 0 );
         // }
     }
-    //-- Show what you got
+}
+
+/** @function main */
+int main( int argc, const char** argv )
+{
+    face_cascade_name = "face_cascade.xml";
+    eyes_cascade_name = "eyes_cascade.xml";
+    VideoCapture capture;
+    Mat frame;
+
+    //-- 1. Load the cascades
+    if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading face cascade\n"); return -1; };
+    if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading eyes cascade\n"); return -1; };
+
+    //-- 2. Read the video stream
+    // capture.open( 0 );
+    capture = VideoCapture("people_walking.mp4");
+
+    if ( ! capture.isOpened() ) { printf("--(!)Error opening video capture\n"); return -1; }
+
+    capture.read(frame);
+    inicializaColunas(frame);
+    int count = 0;
+    while ( capture.read(frame) )
+    {
+        if( frame.empty() )
+        {
+            printf(" --(!) No captured frame -- Break!");
+            break;
+        }
+
+        //-- 3. Apply the classifier to the frame
+        detectAndDisplay( frame );
+        desenhaColunas(frame);
+        calculaRetangulosDispoiniveisEDesenha(frame);
+        imshow( window_name, frame );
+        count++;
+
+        char c = (char)waitKey(10);
+        if( c == 27 ) { break; } // escape
+    }
+    return 0;
 }
