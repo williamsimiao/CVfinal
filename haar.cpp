@@ -52,9 +52,14 @@ void calculaColunasDispoiniveisEDesenha(Mat frame) {
   int indiceDaprimeiraFinal = 0;
   bool emSequencia = false;
 
-  for(int j = 0; j < colsNumber; j++) {
+  //TODO: apagar esses prints
+  // printf("\n" );
+  // printf("Nao tem rosoto: " );
 
+  for(int j = 0; j < colsNumber; j++) {
     if(!colunaVect[j].temRosto) {
+      //TODO: apagar esses prints
+      //printf("%d\t", j);
       if(!emSequencia) {
         indiceDaprimeira = j;
       }
@@ -71,8 +76,8 @@ void calculaColunasDispoiniveisEDesenha(Mat frame) {
     }
   }
   //TODO: apagar esses prints
-  // printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
-  // printf("indiceDaprimeiraFinal: %d\n",indiceDaprimeiraFinal);
+  //printf("indiceDaprimeiraFinal: %d\n",indiceDaprimeiraFinal);
+  //printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
 
   //Agora vamos desenhar um retangulo da extremidade esquerda da primeira
   //coluna ate a extremidade direita da ultima
@@ -111,7 +116,7 @@ bool isFaceInsideColuna(coluna myColuna, Rect face) {
   int diferencaExtremoDireito = abs(centroFace.x + face.width/2 - myColuna.centroX);
   int diferencaExtremoEsquerdo = abs(centroFace.x - face.width/2 - myColuna.centroX);
 
-  if( diferencaExtremoDireito < colWidth/2 &&
+  if( diferencaExtremoDireito < colWidth/2 ||
       diferencaExtremoEsquerdo < colWidth/2) {
         return true;
   }
@@ -143,6 +148,11 @@ void detectAndDisplay( Mat frame )
     //-- Detect faces
     face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(30, 30) );
 
+    //O for a baixo reseta o atrubuto temRosto de todas as colunas
+    //TODO: pensar melhor sobre essa escolha
+    for(int i = 0; i < colsNumber; i++) {
+      colunaVect[i].temRosto = false;
+    }
     for ( size_t i = 0; i < faces.size(); i++ )
     {
         Point center( faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2 );
@@ -151,22 +161,8 @@ void detectAndDisplay( Mat frame )
         for(int j = 0; j < colsNumber; j++) {
           if(isFaceInsideColuna(colunaVect[j], faces[i])) {
             colunaVect[j].temRosto = true;
-            //Se so considerarmos o ponto central da cabeca, entao basta uma coluna.
-            //break;
           }
         }
-        // Mat faceROI = frame_gray( faces[i] );
-        // std::vector<Rect> eyes;
-        //
-        // //-- In each face, detect eyes
-        // eyes_cascade.detectMultiScale( faceROI, eyes, 1.1, 2, 0 |CASCADE_SCALE_IMAGE, Size(30, 30) );
-        //
-        // for ( size_t j = 0; j < eyes.size(); j++ )
-        // {
-        //     Point eye_center( faces[i].x + eyes[j].x + eyes[j].width/2, faces[i].y + eyes[j].y + eyes[j].height/2 );
-        //     int radius = cvRound( (eyes[j].width + eyes[j].height)*0.25 );
-        //     circle( frame, eye_center, radius, Scalar( 255, 0, 0 ), 4, 8, 0 );
-        // }
     }
 }
 
@@ -176,24 +172,24 @@ int main( int argc, const char** argv )
     face_cascade_name = "face_cascade.xml";
     eyes_cascade_name = "eyes_cascade.xml";
     VideoCapture capture;
-    Mat frame;
+    Mat frame, originalFrame;
 
     //-- 1. Load the cascades
     if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading face cascade\n"); return -1; };
     if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading eyes cascade\n"); return -1; };
 
     //-- 2. Read the video stream
-    // capture.open( 0 );
+    // capture.open( 0 );             //camera
     capture = VideoCapture("people_walking.mp4");
 
     if ( ! capture.isOpened() ) { printf("--(!)Error opening video capture\n"); return -1; }
 
-    capture.read(frame);        //video
-    // frame = imread("one_person.jpg");//imagem
+    capture.read(frame);           //video
+    //frame = imread("one_person.jpg");//imagem
     inicializaColunas(frame);
 
-    while (capture.read(frame)) //video
-    // while (!frame.empty() )       //imagem
+     while (capture.read(frame))  //video
+     //while (!frame.empty() )        //imagem
     {
         if( frame.empty() )
         {
@@ -208,7 +204,18 @@ int main( int argc, const char** argv )
         imshow( window_name, frame );
 
         char c = (char)waitKey(10);
-        if( c == 27 ) { break; } // escape
+        if( c == 27 ) { break; }
+
+        //Frame by frame, deve usado com video
+
+        // string text = "Pressione 'a' para ir ao proximo frame";
+        // const char * constant = text.c_str();
+        // putText(frame, constant, cvPoint(30,30),
+        // FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+        // if( c == 'a' ) {
+        //   capture.read(frame);
+        // }
+
     }
     return 0;
 }
