@@ -1,8 +1,15 @@
+/*
+* Codigo para deteccao de faces foi baseado do exemplo diponivel em:
+* http://docs.opencv.org/2.4/doc/tutorials/objdetect/cascade_classifier/cascade_classifier.html
+*/
+/*Autoria:  William Simiao - 130138002
+            Ricardo
+*/
+
 #include "opencv2/objdetect.hpp"
 #include "opencv2/videoio.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
-
 #include <iostream>
 #include <stdio.h>
 
@@ -14,27 +21,31 @@ struct coluna {
   int centroX;
 };
 
-/** Function Headers */
-void detectAndDisplay( Mat frame );
-
 /** Global variables */
 String face_cascade_name, eyes_cascade_name;
 CascadeClassifier face_cascade;
 CascadeClassifier eyes_cascade;
 String window_name = "Capture - Face detection";
-//by:Will
+//
 Point daEsquerda;
 Point daDireita;
 int colsNumber = 5;
 int colWidth;
 std::vector<coluna> colunaVect;
 
+/*
+* Dado um retangulo, centorna o ponto central dele
+*/
 Point calculaCentro(Rect oneFace) {
   Point center( oneFace.x + oneFace.width/2, oneFace.y + oneFace.height/2 );
   return center;
 }
 
-void calculaRetangulosDispoiniveisEDesenha(Mat frame) {
+/*
+* Verifica quais colunas estao disponiveis, i.e, sem faces no interior, e
+* desenha  o retangulo vermelho que contorna esse conjunto de colunas
+*/
+void calculaColunasDispoiniveisEDesenha(Mat frame) {
   int nConsecutivas = 0;
   int indiceDaprimeira = 0;
   int nConsecutivasFinal = 0;
@@ -59,19 +70,23 @@ void calculaRetangulosDispoiniveisEDesenha(Mat frame) {
       nConsecutivas = 0;
     }
   }
+  //TODO: apagar esses prints
+  // printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
+  // printf("indiceDaprimeiraFinal: %d\n",indiceDaprimeiraFinal);
 
   //Agora vamos desenhar um retangulo da extremidade esquerda da primeira
   //coluna ate a extremidade direita da ultima
-  // printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
-  // printf("ponto um: x=%d , y=%d\n",colunaVect[indiceDaprimeiraFinal].centroX, 0);
-  // printf("ponto dois: x=%d , y=%d\n",colunaVect[nConsecutivasFinal-1].centroX, frame.cols );
-  rectangle(frame, Point(colunaVect[indiceDaprimeiraFinal].centroX - colWidth/2, 0),
-            Point(colunaVect[nConsecutivasFinal-1].centroX + colWidth/2, frame.cols - 10),
+  rectangle(frame, Point(indiceDaprimeiraFinal*colWidth, 0),
+            Point((indiceDaprimeiraFinal+nConsecutivasFinal)*colWidth, frame.cols),
             Scalar( 0, 0, 255 ),
             3,
             0);
 }
 
+/*
+* Inicilazacao do vetor de colunas com suas coordenadas adequadas e todos com a
+* booleana temRosto iniciada como falso.
+*/
 void inicializaColunas(Mat frame) {
   //Largura do frame dividido pelo numero de colunas
   colunaVect.resize(colsNumber);
@@ -81,22 +96,35 @@ void inicializaColunas(Mat frame) {
   int centroDeColuna = colWidth/2;
   for(int i = 0; i < colsNumber; i++) {
     colunaVect[i].centroX = centroDeColuna;
-    centroDeColuna += colWidth;
+    centroDeColuna = centroDeColuna + colWidth;
     colunaVect[i].temRosto = false;
   }
 }
 
+/*
+* Verifica se o a cordenada x do ponto central de face esta a uma distancia de
+* tamanho_da_coluna/2, se sim, entao esta dentro da coluna.
+*/
 bool isFaceInsideColuna(coluna myColuna, Rect face) {
-  Point centro = calculaCentro(face);
-  int diferenca = abs(centro.x - myColuna.centroX);
-  if(diferenca < colWidth/2) return true;
+  //ponto central da face
+  Point centroFace = calculaCentro(face);
+  int diferencaExtremoDireito = abs(centroFace.x + face.width/2 - myColuna.centroX);
+  int diferencaExtremoEsquerdo = abs(centroFace.x - face.width/2 - myColuna.centroX);
+
+  if( diferencaExtremoDireito < colWidth/2 &&
+      diferencaExtremoEsquerdo < colWidth/2) {
+        return true;
+  }
   return false;
 }
 
+/*
+* Desenha as colunas que segmentam todo o frame
+*/
 void desenhaColunas(Mat frame) {
   for(int i = 0; i < colsNumber; i++) {
     rectangle(frame, Point(colWidth*i, 0),
-              Point(colWidth*(i+1), frame.cols -10),
+              Point(colWidth*(i+1), frame.cols),
               Scalar( 255, 0, 0 ),
               3,
               0);
@@ -123,7 +151,7 @@ void detectAndDisplay( Mat frame )
         for(int j = 0; j < colsNumber; j++) {
           if(isFaceInsideColuna(colunaVect[j], faces[i])) {
             colunaVect[j].temRosto = true;
-            //Se presumirmos que cada cabeca so pode ocupar uma coluna pode parar
+            //Se so considerarmos o ponto central da cabeca, entao basta uma coluna.
             //break;
           }
         }
@@ -160,10 +188,12 @@ int main( int argc, const char** argv )
 
     if ( ! capture.isOpened() ) { printf("--(!)Error opening video capture\n"); return -1; }
 
-    capture.read(frame);
+    capture.read(frame);        //video
+    // frame = imread("one_person.jpg");//imagem
     inicializaColunas(frame);
-    int count = 0;
-    while ( capture.read(frame) )
+
+    while (capture.read(frame)) //video
+    // while (!frame.empty() )       //imagem
     {
         if( frame.empty() )
         {
@@ -174,9 +204,8 @@ int main( int argc, const char** argv )
         //-- 3. Apply the classifier to the frame
         detectAndDisplay( frame );
         desenhaColunas(frame);
-        calculaRetangulosDispoiniveisEDesenha(frame);
+        calculaColunasDispoiniveisEDesenha(frame);
         imshow( window_name, frame );
-        count++;
 
         char c = (char)waitKey(10);
         if( c == 27 ) { break; } // escape
