@@ -29,9 +29,12 @@ String window_name = "Capture - Face detection";
 //
 Point daEsquerda;
 Point daDireita;
-int colsNumber = 5;
+int const colsNumber = 5;
+int const framesApular = 20;
 int colWidth;
 std::vector<coluna> colunaVect;
+int indiceDaprimeiraFinal;
+int nConsecutivasFinal;
 
 // Delay variables
 int frameCounter = 0;
@@ -49,11 +52,11 @@ Point calculaCentro(Rect oneFace) {
 * Verifica quais colunas estao disponiveis, i.e, sem faces no interior, e
 * desenha  o retangulo vermelho que contorna esse conjunto de colunas
 */
-void calculaColunasDispoiniveisEDesenha(Mat frame) {
+void calculaColunasDispoiniveis(Mat frame) {
   int nConsecutivas = 0;
   int indiceDaprimeira = 0;
-  int nConsecutivasFinal = 0;
-  int indiceDaprimeiraFinal = 0;
+  nConsecutivasFinal = 0;
+  indiceDaprimeiraFinal = 0;
   bool emSequencia = false;
 
   //TODO: apagar esses prints
@@ -82,7 +85,9 @@ void calculaColunasDispoiniveisEDesenha(Mat frame) {
   //TODO: apagar esses prints
   //printf("indiceDaprimeiraFinal: %d\n",indiceDaprimeiraFinal);
   //printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
+}
 
+void desenhaColunasDisponiveis(Mat frame) {
   //Agora vamos desenhar um retangulo da extremidade esquerda da primeira
   //coluna ate a extremidade direita da ultima
   rectangle(frame, Point(indiceDaprimeiraFinal*colWidth, 0),
@@ -211,19 +216,17 @@ int main( int argc, const char** argv )
         }
 
         //-- 3. Apply the classifier to the frame
-        if (frameCounter == 0) {
-            detectAndDisplay( frame );
-        }
-        else {
-            displayFaces(frame);
-        }
+        detectAndDisplay( frame );
         desenhaColunas(frame);
-        calculaColunasDispoiniveisEDesenha(frame);
+        if (frameCounter == 0) {
+          calculaColunasDispoiniveis(frame);
+        }
+        desenhaColunasDisponiveis(frame);
         imshow( window_name, frame );
-        
+
         // Atualiza a cada 20 frames
         frameCounter++;
-        if (frameCounter >= 20) {
+        if (frameCounter >= framesApular) {
             frameCounter = 0;
         }
 
