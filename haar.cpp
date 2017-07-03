@@ -2,8 +2,8 @@
 * Codigo para deteccao de faces foi baseado do exemplo diponivel em:
 * http://docs.opencv.org/2.4/doc/tutorials/objdetect/cascade_classifier/cascade_classifier.html
 */
-/*Autoria:  William Simiao - 130138002
-            Ricardo
+/*Autoria:  William Simiao  - 130138002
+            Ricardo Rachaus - 140161244
 */
 
 #include "opencv2/objdetect.hpp"
@@ -32,6 +32,10 @@ Point daDireita;
 int colsNumber = 5;
 int colWidth;
 std::vector<coluna> colunaVect;
+
+// Delay variables
+int frameCounter = 0;
+std::vector<Rect> lastFacesDetected;
 
 /*
 * Dado um retangulo, centorna o ponto central dele
@@ -166,6 +170,15 @@ void detectAndDisplay( Mat frame )
     }
 }
 
+/** @function Exibe as faces no frame */
+void displayFaces(Mat frame) {
+    for ( size_t i = 0; i < lastFacesDetected.size(); i++ )
+    {
+        Point center( lastFacesDetected[i].x + lastFacesDetected[i].width/2, lastFacesDetected[i].y + lastFacesDetected[i].height/2 );
+        ellipse( frame, center, Size( lastFacesDetected[i].width/2, lastFacesDetected[i].height/2 ), 0, 0, 360, Scalar( 255, 0, 255 ), 4, 8, 0 );
+    }
+}
+
 /** @function main */
 int main( int argc, const char** argv )
 {
@@ -198,10 +211,21 @@ int main( int argc, const char** argv )
         }
 
         //-- 3. Apply the classifier to the frame
-        detectAndDisplay( frame );
+        if (frameCounter == 0) {
+            detectAndDisplay( frame );
+        }
+        else {
+            displayFaces(frame);
+        }
         desenhaColunas(frame);
         calculaColunasDispoiniveisEDesenha(frame);
         imshow( window_name, frame );
+        
+        // Atualiza a cada 20 frames
+        frameCounter++;
+        if (frameCounter >= 20) {
+            frameCounter = 0;
+        }
 
         char c = (char)waitKey(10);
         if( c == 27 ) { break; }
