@@ -2,8 +2,8 @@
 * Codigo para deteccao de faces foi baseado do exemplo diponivel em:
 * http://docs.opencv.org/2.4/doc/tutorials/objdetect/cascade_classifier/cascade_classifier.html
 */
-/*Autoria:  William Simiao  - 130138002
-            Ricardo Rachaus - 140161244
+/*Autoria:  William Simiao  - 13/0138002
+            Ricardo Rachaus - 14/0161244
 */
 
 #include "opencv2/objdetect.hpp"
@@ -16,21 +16,26 @@
 using namespace std;
 using namespace cv;
 
+/*
+* Estrutura utilizada para segmentacao do frame de forma a facilitar a determinacao
+* de regioes do frame sem rostos
+*/
 struct coluna {
   bool temRosto;
   int centroX;
 };
 
-/** Global variables */
-String face_cascade_name, eyes_cascade_name;
+/* Variaveis Globais */
+String face_cascade_name;
 CascadeClassifier face_cascade;
-CascadeClassifier eyes_cascade;
-String window_name = "Capture - Face detection";
-//
-Point daEsquerda;
-Point daDireita;
+String window_name = "CVfinal";
+
+//PARAMETROS DE MAIOR INFLUENCIA NA EFIENCIA
 int const colsNumber = 5;
 int const framesApular = 20;
+
+Point daEsquerda;
+Point daDireita;
 int colWidth;
 std::vector<coluna> colunaVect;
 int indiceDaprimeiraFinal;
@@ -41,7 +46,7 @@ int frameCounter = 0;
 std::vector<Rect> lastFacesDetected;
 
 /*
-* Dado um retangulo, centorna o ponto central dele
+* Dado um retangulo, retorna o ponto central dele
 */
 Point calculaCentro(Rect oneFace) {
   Point center( oneFace.x + oneFace.width/2, oneFace.y + oneFace.height/2 );
@@ -50,7 +55,7 @@ Point calculaCentro(Rect oneFace) {
 
 /*
 * Verifica quais colunas estao disponiveis, i.e, sem faces no interior, e
-* desenha  o retangulo vermelho que contorna esse conjunto de colunas
+* desenha  o retangulo vermelho que contorna a maior sequencia dessas colunas.
 */
 void calculaColunasDispoiniveis(Mat frame) {
   int nConsecutivas = 0;
@@ -59,19 +64,15 @@ void calculaColunasDispoiniveis(Mat frame) {
   indiceDaprimeiraFinal = 0;
   bool emSequencia = false;
 
-  //TODO: apagar esses prints
-  // printf("\n" );
-  // printf("Nao tem rosoto: " );
 
   for(int j = 0; j < colsNumber; j++) {
     if(!colunaVect[j].temRosto) {
-      //TODO: apagar esses prints
-      //printf("%d\t", j);
       if(!emSequencia) {
         indiceDaprimeira = j;
       }
       emSequencia = true;
       nConsecutivas++;
+      //Verificando
       if(nConsecutivas > nConsecutivasFinal) {
         nConsecutivasFinal = nConsecutivas;
         indiceDaprimeiraFinal = indiceDaprimeira;
@@ -82,9 +83,6 @@ void calculaColunasDispoiniveis(Mat frame) {
       nConsecutivas = 0;
     }
   }
-  //TODO: apagar esses prints
-  //printf("indiceDaprimeiraFinal: %d\n",indiceDaprimeiraFinal);
-  //printf("nConsecutivasFinal: %d\n", nConsecutivasFinal);
 }
 
 void desenhaColunasDisponiveis(Mat frame) {
@@ -133,7 +131,7 @@ bool isFaceInsideColuna(coluna myColuna, Rect face) {
 }
 
 /*
-* Desenha as colunas que segmentam todo o frame
+* Desenha as colunas azuis que segmentam todo o frame
 */
 void desenhaColunas(Mat frame) {
   for(int i = 0; i < colsNumber; i++) {
@@ -157,8 +155,8 @@ void detectAndDisplay( Mat frame )
     //-- Detect faces
     face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0|CASCADE_SCALE_IMAGE, Size(30, 30) );
 
-    //O for a baixo reseta o atrubuto temRosto de todas as colunas
-    //TODO: pensar melhor sobre essa escolha
+    //O for a baixo reseta o atrubuto booleano 'temRosto' de todas as colunas no
+    //vetor colunaVect
     for(int i = 0; i < colsNumber; i++) {
       colunaVect[i].temRosto = false;
     }
@@ -175,7 +173,7 @@ void detectAndDisplay( Mat frame )
     }
 }
 
-/** @function Exibe as faces no frame */
+/* Apenas exibe as faces da ultima computacao*/
 void displayFaces(Mat frame) {
     for ( size_t i = 0; i < lastFacesDetected.size(); i++ )
     {
@@ -184,65 +182,92 @@ void displayFaces(Mat frame) {
     }
 }
 
-/** @function main */
+/* main */
 int main( int argc, const char** argv )
 {
     face_cascade_name = "face_cascade.xml";
-    eyes_cascade_name = "eyes_cascade.xml";
     VideoCapture capture;
     Mat frame, originalFrame;
+    bool modoFrameAFrame;
 
-    //-- 1. Load the cascades
-    if( !face_cascade.load( face_cascade_name ) ){ printf("--(!)Error loading face cascade\n"); return -1; };
-    if( !eyes_cascade.load( eyes_cascade_name ) ){ printf("--(!)Error loading eyes cascade\n"); return -1; };
+    //carregamento do cascade
+    if( !face_cascade.load( face_cascade_name ) ){ printf("Erro no carregamento do arquivo cascade\n"); return -1; };
 
-    //-- 2. Read the video stream
-    // capture.open( 0 );             //camera
-    capture = VideoCapture("people_walking.mp4");
+    //Uso da camera ou entrada de video
+    if(argc > 1) {
+      capture = VideoCapture(argv[1]);
+    }
+    else {
+      printf("Para usar um video como estrada basta passar o nome do arquivo como parametro na execucao do programa\n");
+      printf("Um arquivo de videos exemplo eh fornecido, 'people_walking.mp4'\n");
+      capture = VideoCapture(0);
+    }
 
-    if ( ! capture.isOpened() ) { printf("--(!)Error opening video capture\n"); return -1; }
+    if ( ! capture.isOpened() ) { printf("Erro na abertura do stream de video\n"); return -1; }
 
-    capture.read(frame);           //video
-    //frame = imread("one_person.jpg");//imagem
+    //leitura do preimreiro frame para inicializar as colunas
+    capture.read(frame);
     inicializaColunas(frame);
 
-     while (capture.read(frame))  //video
-     //while (!frame.empty() )        //imagem
+     while (!frame.empty())
     {
-        if( frame.empty() )
-        {
-            printf(" --(!) No captured frame -- Break!");
-            break;
-        }
-
-        //-- 3. Apply the classifier to the frame
-        detectAndDisplay( frame );
-        desenhaColunas(frame);
-        if (frameCounter == 0) {
-          calculaColunasDispoiniveis(frame);
-        }
-        desenhaColunasDisponiveis(frame);
-        imshow( window_name, frame );
-
-        // Atualiza a cada 20 frames
-        frameCounter++;
-        if (frameCounter >= framesApular) {
-            frameCounter = 0;
-        }
-
+        //identificacao da tecla precionada
         char c = (char)waitKey(10);
         if( c == 27 ) { break; }
 
-        //Frame by frame, deve usado com video
+        /*Modo frame a frame(apenas para analise e debuging)*/
 
-        // string text = "Pressione 'a' para ir ao proximo frame";
-        // const char * constant = text.c_str();
-        // putText(frame, constant, cvPoint(30,30),
-        // FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
-        // if( c == 'a' ) {
-        //   capture.read(frame);
-        // }
+        // Se estiver no modo Frame a Frame leia apenas um frame e se a tecla 'a'
+        // for precionada
+        if(modoFrameAFrame) {
+          if( c == 'a' ) {
+            capture.read(frame);
+          }
+        }
+        //Se nao estiver no modo Frame a Frame me o stream normalmente
+        else{
+          capture.read(frame);
+        }
 
+        //Ativando o modo Frame a Frame
+        if( c == 'a' ) {
+          modoFrameAFrame = true;
+        }
+        //Desativando o modo Frame a Frame
+        if( c == 'd') {
+          modoFrameAFrame = false;
+        }
+
+        //Aplicando o casdace classifier ao frame
+        detectAndDisplay( frame );
+
+        desenhaColunas(frame);
+        //Verifica se o numero de frame lidos desde a ultima computacao das colunas
+        //disponiveis eh igual ao parametro framesApular
+        if (frameCounter == framesApular) {
+          //Calcula sequencia de colunas nao ocupadas por faces a partir de frame atual
+          calculaColunasDispoiniveis(frame);
+          frameCounter = 0;
+        }
+        //Exibe as colunas calculadas
+        desenhaColunasDisponiveis(frame);
+        frameCounter++;
+
+        //Instrucoes para ativacao e dasativacao do modo Frame a Frame na janela
+        if(modoFrameAFrame) {
+          string text = "Pressione 'a' para ir ao proximo frame ou 'd  para desativar'";
+          const char * constant = text.c_str();
+          putText(frame, constant, cvPoint(30,30),
+          FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+        }
+        else {
+          string text = "Pressione 'a' para ativar o modo frame a frame";
+          const char * constant = text.c_str();
+          putText(frame, constant, cvPoint(30,30),
+          FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(200,200,250), 1, CV_AA);
+        }
+
+        imshow( window_name, frame );
     }
     return 0;
 }
